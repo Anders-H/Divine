@@ -1,0 +1,605 @@
+00001  0000             ; ============================================================
+00002  0001             ; DIVINE DEMO - C64
+00003  0001             ; ============================================================
+00004  0001             ; MINNESKARTA:
+00005  0001             ;   $0801-$080C  BASIC-STUB
+00006  0001             ;   $080D-$0FFF  KOD
+00007  0001             ;   $1006-$3022  SID-MUSIK
+00008  0001             ;   $3200-$3DFF  SINTBL + KOD-DATA
+00009  0001             ;   $3E00-$3FFF  SPRITEDATA (KÄLLKOD-DATA)
+00010  0001             ;   ; --- VIC BANK 1 ($4000-$7FFF) ---
+00011  0001             ;   $4000-$5F3F  BITMAP (8000 BYTES)
+00012  0001             ;   $6000-$63E7  SKÄRMMINNE / VIDEO-RAM (1000 BYTES)
+00013  0001             ;   $67F8-$67FF  SPRITE-PEKARE (LIGGER I SLUTET AV VIDEO-RAM!)
+00014  0001             ;   $7E00-$7FFF  SPRITEDATA (VIC:S MÅLADRESS FÖR BLOCK 248-255)
+00015  0001             ;   ; --- FÄRG-RAM (FAST ADRESS I C64) ---
+00016  0001             ;   $D800-$DBE7  FÄRG-RAM (1000 BYTES)
+00017  0001             ; ============================================================
+00018  0001             
+00019  0001             ; --- VIC-II ---
+00020  0001             SPRPOS     = $D000
+00021  0001             SPRX_MSB   = $D010
+00022  0001             SPREN      = $D015
+00023  0001             SPRDBL_Y   = $D017
+00024  0001             SPRCOL     = $D027
+00025  0001             BORDER     = $D020
+00026  0001             BGCOL      = $D021
+00027  0001             VICCTRL    = $D011
+00028  0001             VICCTRL2   = $D016
+00029  0001             RASTER     = $D012
+00030  0001             VICIRQ     = $D019
+00031  0001             VICICR     = $D01A
+00032  0001             VICMEM     = $D018
+00033  0001             
+00034  0001             ; --- CIA2 (VIC-BANK) ---
+00035  0001             CIA2PRA    = $DD00
+00036  0001             
+00037  0001             ; --- CIA ---
+00038  0001             CIAICR     = $DC0D
+00039  0001             CIA2ICR    = $DD0D
+00040  0001             
+00041  0001             ; --- SID ---
+00042  0001             SID_INIT   = $1103
+00043  0001             SID_PLAY   = $1006
+00044  0001             
+00045  0001             ; ============================================================
+00046  0001             ; BASIC-STUB PÅ $0801 (SYS 2061)
+00047  0001             ; ============================================================
+00048  0001                        *= $0801
+00049  0801  0C 08 0A              BYTE $0C,$08,$0A,$00,$9E,$32,$30,$36,$31,$00,$00,$00
+00050  080D             
+00051  080D             ; ============================================================
+00052  080D             ; KODEN STARTAR HÄR ($080D)
+00053  080D             ; ============================================================
+00054  080D                        *= $080D
+00055  080D             
+00056  080D             START
+00057  080D  78                    SEI
+00058  080E             
+00059  080E                        ; STÄNG AV CIA1 OCH CIA2 IRQ
+00060  080E  A9 7F                 LDA #$7F
+00061  0810  8D 0D DC              STA CIAICR
+00062  0813  8D 0D DD              STA CIA2ICR
+00063  0816  AD 0D DC              LDA CIAICR          ; KVITTERA PENDING IRQ
+00064  0819  AD 0D DD              LDA CIA2ICR
+00065  081C             
+00066  081C                        ; SVART RAM OCH BAKGRUND
+00067  081C  A9 00                 LDA #$00
+00068  081E  8D 20 D0              STA BORDER
+00069  0821  8D 21 D0              STA BGCOL
+00070  0824             
+00071  0824                        ; BYT TILL VIC BANK 1 ($4000-$7FFF)
+00072  0824  AD 00 DD              LDA CIA2PRA
+00073  0827  29 FC                 AND #$FC
+00074  0829  09 02                 ORA #$02
+00075  082B  8D 00 DD              STA CIA2PRA
+00076  082E             
+00077  082E                        ; SÄTT VIC-MINNE: BITMAP @ $4000 (BIT3=0), SKÄRM @ $6000 (BITS7-4=%1000)
+00078  082E  A9 80                 LDA #$80
+00079  0830  8D 18 D0              STA VICMEM
+00080  0833             
+00081  0833                        ; AKTIVERA MULTICOLOR BITMAP-LÄGE
+00082  0833  AD 11 D0              LDA VICCTRL
+00083  0836  09 20                 ORA #$20            ; BIT 5 = BMM (BITMAP MODE)
+00084  0838  8D 11 D0              STA VICCTRL
+00085  083B  AD 16 D0              LDA VICCTRL2
+00086  083E  09 10                 ORA #$10            ; BIT 4 = MCM (MULTICOLOR)
+00087  0840  8D 16 D0              STA VICCTRL2
+00088  0843             
+00089  0843                        ; KOPIERA BITMAP TILL $4000 (8000 BYTES)
+00090  0843  A0 00                 LDY #$00
+00091  0845             BMP_LP1
+00092  0845  B9 00 40              LDA BITMAPDATA+$000,Y
+00093  0848  99 00 40              STA $4000,Y
+00094  084B  B9 00 41              LDA BITMAPDATA+$100,Y
+00095  084E  99 00 41              STA $4100,Y
+00096  0851  B9 00 42              LDA BITMAPDATA+$200,Y
+00097  0854  99 00 42              STA $4200,Y
+00098  0857  B9 00 43              LDA BITMAPDATA+$300,Y
+00099  085A  99 00 43              STA $4300,Y
+00100  085D  B9 00 44              LDA BITMAPDATA+$400,Y
+00101  0860  99 00 44              STA $4400,Y
+00102  0863  B9 00 45              LDA BITMAPDATA+$500,Y
+00103  0866  99 00 45              STA $4500,Y
+00104  0869  B9 00 46              LDA BITMAPDATA+$600,Y
+00105  086C  99 00 46              STA $4600,Y
+00106  086F  B9 00 47              LDA BITMAPDATA+$700,Y
+00107  0872  99 00 47              STA $4700,Y
+00108  0875  C8                    INY
+00109  0876  D0 CD                 BNE BMP_LP1
+00110  0878             
+00111  0878  A0 00                 LDY #$00
+00112  087A             BMP_LP2
+00113  087A  B9 00 48              LDA BITMAPDATA+$800,Y
+00114  087D  99 00 48              STA $4800,Y
+00115  0880  B9 00 49              LDA BITMAPDATA+$900,Y
+00116  0883  99 00 49              STA $4900,Y
+00117  0886  B9 00 4A              LDA BITMAPDATA+$A00,Y
+00118  0889  99 00 4A              STA $4A00,Y
+00119  088C  B9 00 4B              LDA BITMAPDATA+$B00,Y
+00120  088F  99 00 4B              STA $4B00,Y
+00121  0892  B9 00 4C              LDA BITMAPDATA+$C00,Y
+00122  0895  99 00 4C              STA $4C00,Y
+00123  0898  B9 00 4D              LDA BITMAPDATA+$D00,Y
+00124  089B  99 00 4D              STA $4D00,Y
+00125  089E  B9 00 4E              LDA BITMAPDATA+$E00,Y
+00126  08A1  99 00 4E              STA $4E00,Y
+00127  08A4  B9 00 4F              LDA BITMAPDATA+$F00,Y
+00128  08A7  99 00 4F              STA $4F00,Y
+00129  08AA  C8                    INY
+00130  08AB  D0 CD                 BNE BMP_LP2
+00131  08AD             
+00132  08AD  A0 00                 LDY #$00
+00133  08AF             BMP_LP3
+00134  08AF  B9 00 50              LDA BITMAPDATA+$1000,Y
+00135  08B2  99 00 50              STA $5000,Y
+00136  08B5  B9 00 51              LDA BITMAPDATA+$1100,Y
+00137  08B8  99 00 51              STA $5100,Y
+00138  08BB  B9 00 52              LDA BITMAPDATA+$1200,Y
+00139  08BE  99 00 52              STA $5200,Y
+00140  08C1  B9 00 53              LDA BITMAPDATA+$1300,Y
+00141  08C4  99 00 53              STA $5300,Y
+00142  08C7  B9 00 54              LDA BITMAPDATA+$1400,Y
+00143  08CA  99 00 54              STA $5400,Y
+00144  08CD  B9 00 55              LDA BITMAPDATA+$1500,Y
+00145  08D0  99 00 55              STA $5500,Y
+00146  08D3  B9 00 56              LDA BITMAPDATA+$1600,Y
+00147  08D6  99 00 56              STA $5600,Y
+00148  08D9  B9 00 57              LDA BITMAPDATA+$1700,Y
+00149  08DC  99 00 57              STA $5700,Y
+00150  08DF  C8                    INY
+00151  08E0  D0 CD                 BNE BMP_LP3
+00152  08E2             
+00153  08E2  A0 00                 LDY #$00
+00154  08E4             BMP_LP4
+00155  08E4  B9 00 58              LDA BITMAPDATA+$1800,Y
+00156  08E7  99 00 58              STA $5800,Y
+00157  08EA  B9 00 59              LDA BITMAPDATA+$1900,Y
+00158  08ED  99 00 59              STA $5900,Y
+00159  08F0  B9 00 5A              LDA BITMAPDATA+$1A00,Y
+00160  08F3  99 00 5A              STA $5A00,Y
+00161  08F6  B9 00 5B              LDA BITMAPDATA+$1B00,Y
+00162  08F9  99 00 5B              STA $5B00,Y
+00163  08FC  B9 00 5C              LDA BITMAPDATA+$1C00,Y
+00164  08FF  99 00 5C              STA $5C00,Y
+00165  0902  B9 00 5D              LDA BITMAPDATA+$1D00,Y
+00166  0905  99 00 5D              STA $5D00,Y
+00167  0908  B9 00 5E              LDA BITMAPDATA+$1E00,Y
+00168  090B  99 00 5E              STA $5E00,Y
+00169  090E  B9 00 5F              LDA BITMAPDATA+$1F00,Y
+00170  0911  99 00 5F              STA $5F00,Y
+00171  0914  C8                    INY
+00172  0915  D0 CD                 BNE BMP_LP4
+00173  0917             
+00174  0917                        ; KOPIERA SKÄRMDATA TILL $6000 (1000 BYTES)
+00175  0917  A2 00                 LDX #$00
+00176  0919             SCR_LOOP
+00177  0919  BD 40 5F              LDA SCREENDATA,X
+00178  091C  9D 00 60              STA $6000,X
+00179  091F  E8                    INX
+00180  0920  E0 E8                 CPX #$E8
+00181  0922  D0 F5                 BNE SCR_LOOP
+00182  0924  A2 00                 LDX #$00
+00183  0926             SCR_LOOP2
+00184  0926  BD 28 60              LDA SCREENDATA+$E8,X
+00185  0929  9D E8 60              STA $60E8,X
+00186  092C  E8                    INX
+00187  092D  E0 E8                 CPX #$E8
+00188  092F  D0 F5                 BNE SCR_LOOP2
+00189  0931  A2 00                 LDX #$00
+00190  0933             SCR_LOOP3
+00191  0933  BD 10 61              LDA SCREENDATA+$1D0,X
+00192  0936  9D D0 61              STA $61D0,X
+00193  0939  E8                    INX
+00194  093A  E0 E8                 CPX #$E8
+00195  093C  D0 F5                 BNE SCR_LOOP3
+00196  093E  A2 00                 LDX #$00
+00197  0940             SCR_LOOP4
+00198  0940  BD F8 61              LDA SCREENDATA+$2B8,X
+00199  0943  9D B8 62              STA $62B8,X
+00200  0946  E8                    INX
+00201  0947  E0 88                 CPX #$88
+00202  0949  D0 F5                 BNE SCR_LOOP4
+00203  094B             
+00204  094B                        ; KOPIERA FÄRG-RAM TILL $D800 (1000 BYTES)
+00205  094B  A2 00                 LDX #$00
+00206  094D             CLR_LOOP
+00207  094D  BD 28 63              LDA COLORDATA,X
+00208  0950  9D 00 D8              STA $D800,X
+00209  0953  E8                    INX
+00210  0954  E0 E8                 CPX #$E8
+00211  0956  D0 F5                 BNE CLR_LOOP
+00212  0958  A2 00                 LDX #$00
+00213  095A             CLR_LOOP2
+00214  095A  BD 10 64              LDA COLORDATA+$E8,X
+00215  095D  9D E8 D8              STA $D8E8,X
+00216  0960  E8                    INX
+00217  0961  E0 E8                 CPX #$E8
+00218  0963  D0 F5                 BNE CLR_LOOP2
+00219  0965  A2 00                 LDX #$00
+00220  0967             CLR_LOOP3
+00221  0967  BD F8 64              LDA COLORDATA+$1D0,X
+00222  096A  9D D0 D9              STA $D9D0,X
+00223  096D  E8                    INX
+00224  096E  E0 E8                 CPX #$E8
+00225  0970  D0 F5                 BNE CLR_LOOP3
+00226  0972  A2 00                 LDX #$00
+00227  0974             CLR_LOOP4
+00228  0974  BD E0 65              LDA COLORDATA+$2B8,X
+00229  0977  9D B8 DA              STA $DAB8,X
+00230  097A  E8                    INX
+00231  097B  E0 88                 CPX #$88
+00232  097D  D0 F5                 BNE CLR_LOOP4
+00233  097F             
+00234  097F                        ; AKTIVERA ALLA 8 SPRITES MED NORMALA PROPORTIONER (INGEN Y-EXPANSION)
+00235  097F  A9 FF                 LDA #$FF
+00236  0981  8D 15 D0              STA SPREN
+00237  0984             
+00238  0984                        ; SÄTT ALLA SPRITEFÄRGER TILL SVART INITIALT
+00239  0984  A9 00                 LDA #$00
+00240  0986  A2 00                 LDX #$00
+00241  0988             COL_LOOP
+00242  0988  9D 27 D0              STA SPRCOL,X
+00243  098B  E8                    INX
+00244  098C  E0 08                 CPX #$08
+00245  098E  D0 F8                 BNE COL_LOOP
+00246  0990  A2 00                 LDX #$00
+00247  0992             SPR_PTR
+00248  0992  8A                    TXA
+00249  0993  18                    CLC
+00250  0994  69 F8                 ADC #$F8
+00251  0996  9D F8 67              STA $67F8,X
+00252  0999  E8                    INX
+00253  099A  E0 08                 CPX #$08
+00254  099C  D0 F4                 BNE SPR_PTR
+00255  099E  A2 00                 LDX #$00
+00256  09A0             SPR_CP1
+00257  09A0  BD 00 33              LDA SPRITEDATA,X
+00258  09A3  9D 00 7E              STA $7E00,X
+00259  09A6  E8                    INX
+00260  09A7  D0 F7                 BNE SPR_CP1
+00261  09A9                        ; PASS 2: $7F00-$7FFF
+00262  09A9  A2 00                 LDX #$00
+00263  09AB             SPR_CP2
+00264  09AB  BD 00 34              LDA SPRITEDATA+$100,X
+00265  09AE  9D 00 7F              STA $7F00,X
+00266  09B1  E8                    INX
+00267  09B2  D0 F7                 BNE SPR_CP2
+00268  09B4             
+00269  09B4                        ; SÄTT START-X-POSITIONER FÖR ALLA SPRITES
+00270  09B4  A2 00                 LDX #$00
+00271  09B6             INIT_POS
+00272  09B6  BD AF 0A              LDA SPR_X,X
+00273  09B9  9D 00 D0              STA SPRPOS,X
+00274  09BC  E8                    INX
+00275  09BD  E0 10                 CPX #$10
+00276  09BF  D0 F5                 BNE INIT_POS
+00277  09C1             
+00278  09C1                        ; SPRITE 6 OCH 7 BEHÖVER MSB P.G.A. 8-BIT X-LIMIT
+00279  09C1  A9 C0                 LDA #%11000000
+00280  09C3  8D 10 D0              STA SPRX_MSB
+00281  09C6             
+00282  09C6                        ; INITIERA SID
+00283  09C6  A9 00                 LDA #$00
+00284  09C8  20 03 11              JSR SID_INIT
+00285  09CB             
+00286  09CB                        ; KONFIGURERA RASTER-IRQ PÅ RAD 150
+00287  09CB  AD 11 D0              LDA VICCTRL
+00288  09CE  29 7F                 AND #$7F
+00289  09D0  8D 11 D0              STA VICCTRL
+00290  09D3  A9 96                 LDA #150
+00291  09D5  8D 12 D0              STA RASTER
+00292  09D8             
+00293  09D8                        ; KOPPLA IN VÅR IRQ-RUTIN
+00294  09D8  A9 EE                 LDA #<IRQ
+00295  09DA  8D 14 03              STA $0314
+00296  09DD  A9 09                 LDA #>IRQ
+00297  09DF  8D 15 03              STA $0315
+00298  09E2             
+00299  09E2                        ; AKTIVERA OCH KVITTERA RASTER-IRQ
+00300  09E2  A9 01                 LDA #$01
+00301  09E4  8D 1A D0              STA VICICR
+00302  09E7  8D 19 D0              STA VICIRQ
+00303  09EA             
+00304  09EA  58                    CLI
+00305  09EB             
+00306  09EB             ; ============================================================
+00307  09EB             ; MAINLOOP
+00308  09EB             ; ============================================================
+00309  09EB             MAIN
+00310  09EB  4C EB 09              JMP MAIN
+00311  09EE             
+00312  09EE             ; ============================================================
+00313  09EE             ; IRQ-RUTIN
+00314  09EE             ; ============================================================
+00315  09EE             IRQ
+00316  09EE  48                    PHA
+00317  09EF  8A                    TXA
+00318  09F0  48                    PHA
+00319  09F1  98                    TYA
+00320  09F2  48                    PHA
+00321  09F3             
+00322  09F3  A9 01                 LDA #$01
+00323  09F5  8D 19 D0              STA VICIRQ          ; KVITTERA VIC IRQ
+00324  09F8             
+00325  09F8  20 06 10              JSR SID_PLAY        ; SPELA MUSIK
+00326  09FB  20 28 0A              JSR MUSIC           ; HANTERA LOOP
+00327  09FE  20 0C 0A              JSR MOVE            ; UPPDATERA SPRITES
+00328  0A01  20 62 0A              JSR FADE            ; TONA SPRITEFÄRGER
+00329  0A04             
+00330  0A04  68                    PLA
+00331  0A05  A8                    TAY
+00332  0A06  68                    PLA
+00333  0A07  AA                    TAX
+00334  0A08  68                    PLA
+00335  0A09  4C 81 EA              JMP $EA81           ; ÅTERGÅ VIA KERNAL
+00336  0A0C             
+00337  0A0C             ; ============================================================
+00338  0A0C             ; MOVE - SINUSVÅG PÅ Y
+00339  0A0C             ; ============================================================
+00340  0A0C             MOVE
+00341  0A0C  EE 27 0A              INC PHASE
+00342  0A0F             
+00343  0A0F  A2 00                 LDX #$00
+00344  0A11             MOVE_LOOP
+00345  0A11  8A                    TXA
+00346  0A12  0A                    ASL A               ; GÅNGER 2 FÖR ATT STEGA RÄTT I SINUS-OFFSETEN PER SPRITE
+00347  0A13  0A                    ASL A
+00348  0A14  0A                    ASL A
+00349  0A15  18                    CLC
+00350  0A16  6D 27 0A              ADC PHASE
+00351  0A19  A8                    TAY
+00352  0A1A  B9 00 32              LDA SINTBL,Y
+00353  0A1D  9D 01 D0              STA SPRPOS+1,X      ; SKRIV TILL Y-REGISTRET FÖR SPRITE (1, 3, 5, 7...)
+00354  0A20  E8                    INX
+00355  0A21  E8                    INX
+00356  0A22  E0 10                 CPX #$10
+00357  0A24  D0 EB                 BNE MOVE_LOOP
+00358  0A26  60                    RTS
+00359  0A27             
+00360  0A27  00         PHASE      BYTE $00
+00361  0A28             
+00362  0A28             ; ============================================================
+00363  0A28             ; MUSIC - FRAME-RÄKNARE OCH LOOP
+00364  0A28             ; ============================================================
+00365  0A28             MUSIC_LEN_LO = $B6
+00366  0A28             MUSIC_LEN_MI = $0D
+00367  0A28             MUSIC_LEN_HI = $00
+00368  0A28             
+00369  0A28             MUSIC
+00370  0A28  EE 5F 0A              INC FRMCNT_LO
+00371  0A2B  D0 08                 BNE MUSIC_NO_CARRY
+00372  0A2D  EE 60 0A              INC FRMCNT_MI
+00373  0A30  D0 03                 BNE MUSIC_NO_CARRY
+00374  0A32  EE 61 0A              INC FRMCNT_HI
+00375  0A35             MUSIC_NO_CARRY 
+00376  0A35  AD 61 0A              LDA FRMCNT_HI
+00377  0A38  C9 00                 CMP #MUSIC_LEN_HI
+00378  0A3A  90 22                 BCC MUSIC_DONE
+00379  0A3C  D0 10                 BNE MUSIC_RESET
+00380  0A3E  AD 60 0A              LDA FRMCNT_MI
+00381  0A41  C9 0D                 CMP #MUSIC_LEN_MI
+00382  0A43  90 19                 BCC MUSIC_DONE
+00383  0A45  D0 07                 BNE MUSIC_RESET
+00384  0A47  AD 5F 0A              LDA FRMCNT_LO
+00385  0A4A  C9 B6                 CMP #MUSIC_LEN_LO
+00386  0A4C  90 10                 BCC MUSIC_DONE
+00387  0A4E             MUSIC_RESET 
+00388  0A4E  A9 00                 LDA #$00
+00389  0A50  8D 5F 0A              STA FRMCNT_LO
+00390  0A53  8D 60 0A              STA FRMCNT_MI
+00391  0A56  8D 61 0A              STA FRMCNT_HI
+00392  0A59  A9 00                 LDA #$00
+00393  0A5B  20 03 11              JSR SID_INIT
+00394  0A5E             MUSIC_DONE 
+00395  0A5E  60                    RTS
+00396  0A5F             
+00397  0A5F  00         FRMCNT_LO  BYTE $00
+00398  0A60  00         FRMCNT_MI  BYTE $00
+00399  0A61  00         FRMCNT_HI  BYTE $00
+00400  0A62             
+00401  0A62             ; ============================================================
+00402  0A62             ; FADE - TONAR SPRITEFÄRGER
+00403  0A62             ; ============================================================
+00404  0A62             FADE
+00405  0A62  EE 86 0A              INC FADECOUNT
+00406  0A65  AD 86 0A              LDA FADECOUNT
+00407  0A68  29 03                 AND #$03
+00408  0A6A  D0 19                 BNE FADE_DONE
+00409  0A6C             
+00410  0A6C  A2 00                 LDX #$00
+00411  0A6E             FADE_LOOP
+00412  0A6E  FE 87 0A              INC FADEPHASE,X
+00413  0A71  BD 87 0A              LDA FADEPHASE,X
+00414  0A74  29 1F                 AND #$1F
+00415  0A76  9D 87 0A              STA FADEPHASE,X
+00416  0A79  A8                    TAY
+00417  0A7A  B9 8F 0A              LDA FADETBL,Y
+00418  0A7D  9D 27 D0              STA SPRCOL,X
+00419  0A80  E8                    INX
+00420  0A81  E0 08                 CPX #$08
+00421  0A83  D0 E9                 BNE FADE_LOOP
+00422  0A85             FADE_DONE
+00423  0A85  60                    RTS
+00424  0A86             
+00425  0A86  00         FADECOUNT  BYTE $00
+00426  0A87             
+00427  0A87             FADEPHASE
+00428  0A87  00 04 08              BYTE $00,$04,$08,$0C,$10,$14,$18,$1C
+00429  0A8F             
+00430  0A8F             FADETBL
+00431  0A8F  00 00 00              BYTE $00,$00,$00,$00
+00432  0A93  0B 0B 0B              BYTE $0B,$0B,$0B,$0B
+00433  0A97  0C 0C 0C              BYTE $0C,$0C,$0C,$0C
+00434  0A9B  0F 0F 0F              BYTE $0F,$0F,$0F,$0F
+00435  0A9F  01 01 01              BYTE $01,$01,$01,$01
+00436  0AA3  0F 0F 0F              BYTE $0F,$0F,$0F,$0F
+00437  0AA7  0C 0C 0C              BYTE $0C,$0C,$0C,$0C
+00438  0AAB  0B 0B 0B              BYTE $0B,$0B,$0B,$0B
+00439  0AAF             
+00440  0AAF             SPR_X
+00441  0AAF  21 50 49              BYTE 33,80, 73,80, 113,80, 153,80
+00442  0AB7  C1 50 E9              BYTE 193,80, 233,80, 17,80, 57,80
+00443  0ABF             
+00444  0ABF             ; ============================================================
+00445  0ABF             ; MUSIK - LADDAS PÅ $1006
+00446  0ABF             ; ============================================================
+00447  0ABF                        *= $1006
+00448  1006                        INCBIN "..\I_TOUCH_MYSELF.SID",$7C
+00449  3023             
+00450  3023             ; ============================================================
+00451  3023             ; DATA - PÅ $3200
+00452  3023             ; ============================================================
+00453  3023                        *= $3200
+00454  3200             
+00455  3200             SINTBL
+00456  3200  78 79 7A              BYTE 120,121,122,123,124,125,126,127,128,129,130,131,132,133,133,134
+00457  3210  87 88 89              BYTE 135,136,137,138,139,140,141,141,142,143,144,145,145,146,147,148
+00458  3220  94 95 96              BYTE 148,149,150,150,151,152,152,153,153,154,154,155,155,156,156,157
+00459  3230  9D 9D 9E              BYTE 157,157,158,158,158,159,159,159,159,159,160,160,160,160,160,160
+00460  3240  A0 A0 A0              BYTE 160,160,160,160,160,160,160,159,159,159,159,159,158,158,158,157
+00461  3250  9D 9D 9C              BYTE 157,157,156,156,155,155,154,154,153,153,152,152,151,150,150,149
+00462  3260  94 94 93              BYTE 148,148,147,146,145,145,144,143,142,141,141,140,139,138,137,136
+00463  3270  87 86 85              BYTE 135,134,133,133,132,131,130,129,128,127,126,125,124,123,122,121
+00464  3280  78 77 76              BYTE 120,119,118,117,116,115,114,113,112,111,110,109,108,107,107,106
+00465  3290  69 68 67              BYTE 105,104,103,102,101,100,99,99,98,97,96,95,95,94,93,92
+00466  32A0  5C 5B 5A              BYTE 92,91,90,90,89,88,88,87,87,86,86,85,85,84,84,83
+00467  32B0  53 53 52              BYTE 83,83,82,82,82,81,81,81,81,81,80,80,80,80,80,80
+00468  32C0  50 50 50              BYTE 80,80,80,80,80,80,80,81,81,81,81,81,82,82,82,83
+00469  32D0  53 53 54              BYTE 83,83,84,84,85,85,86,86,87,87,88,88,89,90,90,91
+00470  32E0  5C 5C 5D              BYTE 92,92,93,94,95,95,96,97,98,99,99,100,101,102,103,104
+00471  32F0  69 6A 6B              BYTE 105,106,107,107,108,109,110,111,112,113,114,115,116,117,118,119
+00472  3300             
+00473  3300             ; 8 SPRITES: BOKSTÄVERNA D I V I N Y L S (HI-RES, 24X21, 64 BYTES VAR INKL. PADDING)
+00474  3300             SPRITEDATA 
+00475  3300                        ; D
+00476  3300  0F FF 00              BYTE $0F,$FF,$00,$0F,$FF,$00,$0F,$FF,$00,$0F,$FF,$C0,$0F,$03,$C0,$0F
+00477  3310  03 C0 0F              BYTE $03,$C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03
+00478  3320  C0 0F 03              BYTE $C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03,$C0,$0F,$03,$C0
+00479  3330  0F 03 C0              BYTE $0F,$03,$C0,$0F,$FF,$C0,$0F,$FF,$00,$0F,$FF,$00,$0F,$FF,$00,$00
+00480  3340                        ; I
+00481  3340  03 FF C0              BYTE $03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$00,$3C,$00,$00
+00482  3350  3C 00 00              BYTE $3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C
+00483  3360  00 00 3C              BYTE $00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00
+00484  3370  00 3C 00              BYTE $00,$3C,$00,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$00
+00485  3380                        ; V
+00486  3380  1E 00 F0              BYTE $1E,$00,$F0,$1E,$00,$F0,$0F,$01,$E0,$0F,$01,$E0,$0F,$01,$E0,$0F
+00487  3390  03 C0 07              BYTE $03,$C0,$07,$83,$C0,$07,$83,$C0,$07,$83,$C0,$03,$C7,$80,$03,$C7
+00488  33A0  80 03 C7              BYTE $80,$03,$C7,$80,$01,$EF,$00,$01,$EF,$00,$01,$EF,$00,$00,$FF,$00
+00489  33B0  00 FE 00              BYTE $00,$FE,$00,$00,$FE,$00,$00,$FE,$00,$00,$7C,$00,$00,$7C,$00,$00
+00490  33C0                        ; I
+00491  33C0  03 FF C0              BYTE $03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$00,$3C,$00,$00
+00492  33D0  3C 00 00              BYTE $3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C
+00493  33E0  00 00 3C              BYTE $00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00
+00494  33F0  00 3C 00              BYTE $00,$3C,$00,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$03,$FF,$C0,$00
+00495  3400                        ; N
+00496  3400  0F 00 F0              BYTE $0F,$00,$F0,$0F,$80,$F0,$0F,$80,$F0,$0F,$C0,$F0,$0F,$C0,$F0,$0F
+00497  3410  E0 F0 0F              BYTE $E0,$F0,$0F,$E0,$F0,$0F,$F0,$F0,$0F,$F0,$F0,$0F,$78,$F0,$0F,$3C
+00498  3420  F0 0F 3C              BYTE $F0,$0F,$3C,$F0,$0F,$1E,$F0,$0F,$1E,$F0,$0F,$0F,$F0,$0F,$0F,$F0
+00499  3430  0F 07 F0              BYTE $0F,$07,$F0,$0F,$07,$F0,$0F,$03,$F0,$0F,$03,$F0,$0F,$01,$F0,$00
+00500  3440                        ; Y
+00501  3440  1E 00 F0              BYTE $1E,$00,$F0,$0F,$01,$E0,$0F,$01,$E0,$07,$83,$C0,$03,$C7,$80,$03
+00502  3450  C7 80 01              BYTE $C7,$80,$01,$EF,$00,$00,$FE,$00,$00,$FE,$00,$00,$7C,$00,$00,$3C
+00503  3460  00 00 3C              BYTE $00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00
+00504  3470  00 3C 00              BYTE $00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00,$3C,$00,$00
+00505  3480                        ; L
+00506  3480  0F 00 00              BYTE $0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F
+00507  3490  00 00 0F              BYTE $00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00
+00508  34A0  00 0F 00              BYTE $00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00
+00509  34B0  0F 00 00              BYTE $0F,$00,$00,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$00
+00510  34C0                        ; S
+00511  34C0  0F FF F0              BYTE $0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$00,$00,$0F
+00512  34D0  00 00 0F              BYTE $00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$00,$00,$0F,$FF,$F0,$0F,$FF
+00513  34E0  F0 0F FF              BYTE $F0,$0F,$FF,$F0,$0F,$FF,$F0,$00,$00,$F0,$00,$00,$F0,$00,$00,$F0
+00514  34F0  00 00 F0              BYTE $00,$00,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$0F,$FF,$F0,$00
+00515  3500             
+00516  3500             ; ============================================================
+00517  3500             ; BILDDATA
+00518  3500             ; ============================================================
+00519  3500                        *= $4000 ; VI MAPPAR KÄLLFILERNA TILL FIKTIVA ADRESSER FÖR ASSEMBLERN,
+00520  4000                        ; MEN DE LÄSES IN LINJÄRT VIA INCBIN
+00521  4000             BITMAPDATA 
+00522  4000                        INCBIN "..\BITMAP.BIN"    ; 8000 BYTES
+00523  5F40             SCREENDATA 
+00524  5F40                        INCBIN "..\SCREEN.BIN"    ; 1000 BYTES
+00525  6328             COLORDATA
+00526  6328                        INCBIN "..\COLORRAM.BIN"  ; 1000 BYTES
+00527  6710             
+
+******* 42 Label(s) *******
+BITMAPDATA = $4000 
+BMP_LP1 = $0845 
+BMP_LP2 = $087A 
+BMP_LP3 = $08AF 
+BMP_LP4 = $08E4 
+CLR_LOOP = $094D 
+CLR_LOOP2 = $095A 
+CLR_LOOP3 = $0967 
+CLR_LOOP4 = $0974 
+COL_LOOP = $0988 
+COLORDATA = $6328 
+FADE = $0A62 
+FADE_DONE = $0A85 
+FADE_LOOP = $0A6E 
+FADECOUNT = $0A86 
+FADEPHASE = $0A87 
+FADETBL = $0A8F 
+FRMCNT_HI = $0A61 
+FRMCNT_LO = $0A5F 
+FRMCNT_MI = $0A60 
+INIT_POS = $09B6 
+IRQ = $09EE 
+MAIN = $09EB 
+MOVE = $0A0C 
+MOVE_LOOP = $0A11 
+MUSIC = $0A28 
+MUSIC_DONE = $0A5E 
+MUSIC_NO_CARRY = $0A35 
+MUSIC_RESET = $0A4E 
+PHASE = $0A27 
+SCR_LOOP = $0919 
+SCR_LOOP2 = $0926 
+SCR_LOOP3 = $0933 
+SCR_LOOP4 = $0940 
+SCREENDATA = $5F40 
+SINTBL = $3200 
+SPR_CP1 = $09A0 
+SPR_CP2 = $09AB 
+SPR_PTR = $0992 
+SPR_X = $0AAF 
+SPRITEDATA = $3300 
+START = $080D 
+
+******* 2 Unused label(s) *******
+BITMAPDATA
+START
+
+******* 22 Variable(s) *******
+BGCOL  = $D021
+BORDER  = $D020
+CIA2ICR  = $DD0D
+CIA2PRA  = $DD00
+CIAICR  = $DC0D
+MUSIC_LEN_HI  = $0000
+MUSIC_LEN_LO  = $00B6
+MUSIC_LEN_MI  = $000D
+RASTER  = $D012
+SID_INIT  = $1103
+SID_PLAY  = $1006
+SPRCOL  = $D027
+SPRDBL_Y  = $D017
+SPREN  = $D015
+SPRPOS  = $D000
+SPRX_MSB  = $D010
+tgt_c64  = $0001
+VICCTRL  = $D011
+VICCTRL2  = $D016
+VICICR  = $D01A
+VICIRQ  = $D019
+VICMEM  = $D018
+******* 4 Unused variables(s) *******
+SPRCOL
+SPRDBL_Y
+SPRPOS
+tgt_c64
+

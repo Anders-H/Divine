@@ -1,0 +1,603 @@
+##{0:0:0:source.prg}D:\GitRepos\Divine\Divine\source.asm
+
+; ============================================================
+; DIVINE DEMO - C64
+; ============================================================
+; Minneskarta:
+;   $0801-$080C  BASIC-stub
+;   $080D-$0FFF  Kod
+;   $1006-$3022  SID-musik
+;   $3200-$3FFF  SINTBL + kod-data + spritedata
+;   $4000-$5F3F  Bitmap (8000 bytes, VIC bank 1)
+;   $6000-$63E7  Skärmminne (1000 bytes, VIC bank 1)
+;   $D800-$DBE7  Färg-RAM (1000 bytes)
+; ============================================================
+
+; --- VIC-II ---
+SPRPOS   = $D000
+SPRX_MSB = $D010
+SPREN    = $D015
+SPRDBL_Y = $D017
+SPRCOL   = $D027
+BORDER   = $D020
+BGCOL    = $D021
+VICCTRL  = $D011
+VICCTRL2 = $D016
+RASTER   = $D012
+VICIRQ   = $D019
+VICICR   = $D01A
+VICMEM   = $D018
+
+; --- CIA2 (VIC-bank) ---
+CIA2PRA  = $DD00
+
+; --- CIA ---
+CIAICR   = $DC0D
+CIA2ICR  = $DD0D
+
+; --- SID (verifierat mot SID-header) ---
+SID_INIT = $1103
+SID_PLAY = $1006
+
+; --- Zeropage ---
+TEMP_MSB = $02
+
+; ============================================================
+; BASIC-stub på $0801
+; SYS 2061 = $080D (stubben är 12 bytes, START hamnar på $080D)
+; ============================================================
+        *= $0801
+        BYTE $0C,$08,$0A,$00,$9E,$32,$30,$36,$31,$00,$00,$00
+
+; ============================================================
+; KODEN STARTAR HÄR ($080D)
+; ============================================================
+        *= $080D
+
+START
+        SEI
+
+        ; Stäng av CIA1 och CIA2 IRQ
+        LDA #$7F
+        STA CIAICR
+        STA CIA2ICR
+        LDA CIAICR          ; Kvittera pending IRQ
+        LDA CIA2ICR
+
+        ; Svart ram och bakgrund
+        LDA #$00
+        STA BORDER
+        STA BGCOL
+
+        ; Byt till VIC bank 1 ($4000-$7FFF)
+        ; CIA2 $DD00 bits 1-0: %10 = bank 1
+        LDA CIA2PRA
+        AND #$FC
+        ORA #$02
+        STA CIA2PRA
+
+        ; Sätt VIC-minne: bitmap @ $4000 (bit3=0), skärm @ $6000 (bits7-4=%1000)
+        LDA #$80
+        STA VICMEM
+
+        ; Aktivera multicolor bitmap-läge
+        LDA VICCTRL
+        ORA #$20            ; Bit 5 = BMM (bitmap mode)
+        STA VICCTRL
+        LDA VICCTRL2
+        ORA #$10            ; Bit 4 = MCM (multicolor)
+        STA VICCTRL2
+
+        ; Kopiera bitmap till $4000 (8000 bytes = 32 sidor x 256)
+        LDX #$00
+        LDY #$00
+BMP_LOOP
+        LDA BITMAPDATA,Y
+        STA $4000,Y         ; Sida 0
+        LDA BITMAPDATA+$100,Y
+        STA $4100,Y
+        LDA BITMAPDATA+$200,Y
+        STA $4200,Y
+        LDA BITMAPDATA+$300,Y
+        STA $4300,Y
+        LDA BITMAPDATA+$400,Y
+        STA $4400,Y
+        LDA BITMAPDATA+$500,Y
+        STA $4500,Y
+        LDA BITMAPDATA+$600,Y
+        STA $4600,Y
+        LDA BITMAPDATA+$700,Y
+        STA $4700,Y
+        LDA BITMAPDATA+$800,Y
+        STA $4800,Y
+        LDA BITMAPDATA+$900,Y
+        STA $4900,Y
+        LDA BITMAPDATA+$A00,Y
+        STA $4A00,Y
+        LDA BITMAPDATA+$B00,Y
+        STA $4B00,Y
+        LDA BITMAPDATA+$C00,Y
+        STA $4C00,Y
+        LDA BITMAPDATA+$D00,Y
+        STA $4D00,Y
+        LDA BITMAPDATA+$E00,Y
+        STA $4E00,Y
+        LDA BITMAPDATA+$F00,Y
+        STA $4F00,Y
+        LDA BITMAPDATA+$1000,Y
+        STA $5000,Y
+        LDA BITMAPDATA+$1100,Y
+        STA $5100,Y
+        LDA BITMAPDATA+$1200,Y
+        STA $5200,Y
+        LDA BITMAPDATA+$1300,Y
+        STA $5300,Y
+        LDA BITMAPDATA+$1400,Y
+        STA $5400,Y
+        LDA BITMAPDATA+$1500,Y
+        STA $5500,Y
+        LDA BITMAPDATA+$1600,Y
+        STA $5600,Y
+        LDA BITMAPDATA+$1700,Y
+        STA $5700,Y
+        LDA BITMAPDATA+$1800,Y
+        STA $5800,Y
+        LDA BITMAPDATA+$1900,Y
+        STA $5900,Y
+        LDA BITMAPDATA+$1A00,Y
+        STA $5A00,Y
+        LDA BITMAPDATA+$1B00,Y
+        STA $5B00,Y
+        LDA BITMAPDATA+$1C00,Y
+        STA $5C00,Y
+        LDA BITMAPDATA+$1D00,Y
+        STA $5D00,Y
+        LDA BITMAPDATA+$1E00,Y
+        STA $5E00,Y
+        LDA BITMAPDATA+$1F00,Y
+        STA $5F00,Y
+        INY
+        BNE BMP_LOOP
+
+        ; Kopiera skärmdata till $6000 (1000 bytes)
+        LDX #$00
+SCR_LOOP
+        LDA SCREENDATA,X
+        STA $6000,X
+        INX
+        CPX #$E8            ; 232 bytes (sida 0)
+        BNE SCR_LOOP
+        LDX #$00
+SCR_LOOP2
+        LDA SCREENDATA+$E8,X
+        STA $60E8,X
+        INX
+        CPX #$E8            ; 232 bytes (sida 1, resten = 1000-232=768, förenkla: 4 pass)
+        BNE SCR_LOOP2
+        LDX #$00
+SCR_LOOP3
+        LDA SCREENDATA+$1D0,X
+        STA $61D0,X
+        INX
+        CPX #$E8
+        BNE SCR_LOOP3
+        LDX #$00
+SCR_LOOP4
+        LDA SCREENDATA+$2B8,X
+        STA $62B8,X
+        INX
+        CPX #$88            ; sista 136 bytes (232*4=928, 1000-928=72... justära: 4*250=1000)
+        BNE SCR_LOOP4
+
+        ; Kopiera färg-RAM till $D800 (1000 bytes)
+        LDX #$00
+CLR_LOOP
+        LDA COLORDATA,X
+        STA $D800,X
+        INX
+        CPX #$E8
+        BNE CLR_LOOP
+        LDX #$00
+CLR_LOOP2
+        LDA COLORDATA+$E8,X
+        STA $D8E8,X
+        INX
+        CPX #$E8
+        BNE CLR_LOOP2
+        LDX #$00
+CLR_LOOP3
+        LDA COLORDATA+$1D0,X
+        STA $D9D0,X
+        INX
+        CPX #$E8
+        BNE CLR_LOOP3
+        LDX #$00
+CLR_LOOP4
+        LDA COLORDATA+$2B8,X
+        STA $DAB8,X
+        INX
+        CPX #$88
+        BNE CLR_LOOP4
+
+        ; Rensa skärmen (skärmminne $0400-$07E7, 1000 tecken)
+        LDA #$20            ; Mellanslag = tomt tecken
+        LDX #$00
+CLS_LOOP
+        STA $0400,X
+        STA $0500,X
+        STA $0600,X
+        STA $06E8,X
+        INX
+        BNE CLS_LOOP
+
+        ; Sätt all textfärg till svart ($D800-$DBE7)
+        LDA #$00
+        LDX #$00
+COL_CLR
+        STA $D800,X
+        STA $D900,X
+        STA $DA00,X
+        STA $DAE8,X
+        INX
+        BNE COL_CLR
+
+        ; Aktivera alla 8 sprites med dubbel höjd
+        LDA #$FF
+        STA SPREN
+        STA SPRDBL_Y
+
+        ; Sätt alla spritefärger till svart (FADE tar över sedan)
+        LDA #$00
+        LDX #$00
+COL_LOOP
+        STA SPRCOL,X
+        INX
+        CPX #$08
+        BNE COL_LOOP
+
+        ; Peka sprite-pekare på block 248-255 ($3E00-$3FC0)
+        LDX #$00
+SPR_PTR
+        TXA
+        CLC
+        ADC #$F8
+        STA $07F8,X
+        INX
+        CPX #$08
+        BNE SPR_PTR
+
+        ; Kopiera 8x64=512 bytes spritedata till $3E00-$3FFF
+        ; Pass 1: $3E00-$3EFF (bytes 0-255)
+        LDX #$00
+SPR_CP1
+        LDA SPRITEDATA,X
+        STA $3E00,X
+        INX
+        BNE SPR_CP1
+        ; Pass 2: $3F00-$3FFF (bytes 256-511)
+        LDX #$00
+SPR_CP2
+        LDA SPRITEDATA+$100,X
+        STA $3F00,X
+        INX
+        BNE SPR_CP2
+
+        ; Sätt start-X-positioner för alla sprites
+        LDX #$00
+INIT_POS
+        LDA SPR_X,X
+        STA SPRPOS,X
+        INX
+        CPX #$10
+        BNE INIT_POS
+
+        ; Den sista spriten (sprit är gott) måste justeras p.g.a. 8-bit
+        LDA #%10000000
+        STA SPRX_MSB
+
+        ; Initiera SID
+        LDA #$00
+        JSR SID_INIT
+
+        ; Konfigurera raster-IRQ på rad 150
+        LDA VICCTRL
+        AND #$7F
+        STA VICCTRL
+        LDA #150
+        STA RASTER
+
+        ; Koppla in vår IRQ-rutin
+        LDA #<IRQ
+        STA $0314
+        LDA #>IRQ
+        STA $0315
+
+        ; Aktivera och kvittera raster-IRQ
+        LDA #$01
+        STA VICICR
+        STA VICIRQ
+
+        CLI
+
+; ============================================================
+; MAINLOOP - allt sker i IRQ
+; ============================================================
+MAIN
+        JMP MAIN
+
+; ============================================================
+; IRQ-rutin
+; ============================================================
+IRQ
+        PHA
+        TXA
+        PHA
+        TYA
+        PHA
+
+        LDA #$01
+        STA VICIRQ          ; Kvittera VIC IRQ
+
+        JSR SID_PLAY        ; Spela ett frame musik
+        JSR MUSIC           ; Hantera loop
+        JSR MOVE            ; Uppdatera sprites
+        JSR FADE            ; Tona spritefärger
+
+        PLA
+        TAY
+        PLA
+        TAX
+        PLA
+        JMP $EA81           ; Återgå via kernel IRQ-avslut
+
+; ============================================================
+; MOVE - sinusvåg på Y, fasta X-positioner
+; ============================================================
+MOVE
+        INC PHASE
+
+        ; Sprite 0
+        LDA PHASE
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+1
+
+        ; Sprite 1
+        LDA PHASE
+        CLC
+        ADC #$20
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+3
+
+        ; Sprite 2
+        LDA PHASE
+        CLC
+        ADC #$40
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+5
+
+        ; Sprite 3
+        LDA PHASE
+        CLC
+        ADC #$60
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+7
+
+        ; Sprite 4
+        LDA PHASE
+        CLC
+        ADC #$80
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+9
+
+        ; Sprite 5
+        LDA PHASE
+        CLC
+        ADC #$A0
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+11
+
+        ; Sprite 6
+        LDA PHASE
+        CLC
+        ADC #$C0
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+13
+
+        ; Sprite 7
+        LDA PHASE
+        CLC
+        ADC #$E0
+        TAY
+        LDA SINTBL,Y
+        STA SPRPOS+15
+
+        RTS
+
+PHASE   BYTE $00
+
+; ============================================================
+; MUSIC - räknar frames och loopar SID_INIT när låten tagit slut
+; Ändra MUSIC_LEN_LO/MI för att ställa in låtens längd:
+;   7350 frames = 147 sek = 2:27 vid 50 fps (PAL)
+;   Beräkning: sekunder * 50 = frames
+;   LO = frames AND 255, MI = frames / 256
+MUSIC_LEN_LO = $B6      ; 7350 AND 255 = 182
+MUSIC_LEN_MI = $D      ; 7350 / 256  =  28
+MUSIC_LEN_HI = $00      ; alltid 0 för låtar under 22 min
+
+MUSIC
+        INC FRMCNT_LO
+        BNE MUSIC_NO_CARRY
+        INC FRMCNT_MI
+        BNE MUSIC_NO_CARRY
+        INC FRMCNT_HI
+MUSIC_NO_CARRY
+        ; Jämför räknaren mot långden (HI)
+        LDA FRMCNT_HI
+        CMP #MUSIC_LEN_HI
+        BCC MUSIC_DONE      ; räknare < längd
+        BNE MUSIC_RESET     ; räknare > längd
+        ; HI lika - kolla MI
+        LDA FRMCNT_MI
+        CMP #MUSIC_LEN_MI
+        BCC MUSIC_DONE
+        BNE MUSIC_RESET
+        ; MI lika - kolla LO
+        LDA FRMCNT_LO
+        CMP #MUSIC_LEN_LO
+        BCC MUSIC_DONE
+MUSIC_RESET
+        ; Återställ räknaren
+        LDA #$00
+        STA FRMCNT_LO
+        STA FRMCNT_MI
+        STA FRMCNT_HI
+        ; Initiera SID igen från början
+        LDA #$00
+        JSR SID_INIT
+MUSIC_DONE
+        RTS
+
+FRMCNT_LO BYTE $00
+FRMCNT_MI BYTE $00
+FRMCNT_HI BYTE $00
+
+; ============================================================
+; FADE - tonar varje sprite svart->vit->svart med fördröjning
+; FADECOUNT räknar frames; var 4:e frame stegas FADEPHASE.
+; Varje sprite har sin egen fas, förskjuten med 32 steg.
+; FADETBL innehåller 32 C64-färgindex: svart->grå->vit->grå->svart.
+; ============================================================
+FADE
+        INC FADECOUNT
+        LDA FADECOUNT
+        AND #$03            ; Modulo 4 (bromsa ner faden)
+        BNE FADE_DONE
+
+        LDX #$00
+FADE_LOOP
+        INC FADEPHASE,X     ; Stega fasräknaren för sprite X
+        LDA FADEPHASE,X
+        AND #$1F            ; Håll inom 0-31
+        STA FADEPHASE,X
+        TAY
+        LDA FADETBL,Y       ; Slå upp färg
+        STA SPRCOL,X        ; Skriv till $D027+X
+        INX
+        CPX #$08
+        BNE FADE_LOOP
+
+FADE_DONE
+        RTS
+
+FADECOUNT BYTE $00
+
+; Startfaser för 8 sprites, förskjutna med 4 steg (av 32) var
+FADEPHASE
+        BYTE $00,$04,$08,$0C,$10,$14,$18,$1C
+
+; 32-stegs fadecykel: svart->mörkgrå->mellgrå->ljusgrå->vit->ljusgrå->mellgrå->mörkgrå->svart
+; C64-färger: 0=svart, 11=mörkgrå, 12=mellgrå, 15=ljusgrå, 1=vit
+FADETBL
+        BYTE $00,$00,$00,$00  ; [ 0- 3] svart
+        BYTE $0B,$0B,$0B,$0B  ; [ 4- 7] mörkgrå
+        BYTE $0C,$0C,$0C,$0C  ; [ 8-11] mellgrå
+        BYTE $0F,$0F,$0F,$0F  ; [12-15] ljusgrå
+        BYTE $01,$01,$01,$01  ; [16-19] vit
+        BYTE $0F,$0F,$0F,$0F  ; [20-23] ljusgrå
+        BYTE $0C,$0C,$0C,$0C  ; [24-27] mellgrå
+        BYTE $0B,$0B,$0B,$0B  ; [28-31] mörkgrå
+
+; Spritepositioner
+SPR_X
+        BYTE 45,80, 85,80, 125,80, 155,80
+        BYTE 185,80, 215,80, 245,80, 25,80
+
+; Spritefärger (används ej längre - FADE sköter färgerna)
+; COLORS lämnas kvar för eventuell framtida användning
+COLORS
+        BYTE $01,$07,$04,$03,$0A,$05,$06,$0E
+
+; ============================================================
+; MUSIK - laddas på $1006
+; SID-header verifierad: load=$1006, init=$1103, play=$1006
+; Data offset i SID-filen är $7C (124 bytes header)
+; Musikdata är 8221 bytes och slutar på $3022
+; ============================================================
+        *= $1006
+        incbin "..\i_touch_myself.sid",$7C
+
+; ============================================================
+; DATA - på $3200 (säkert efter musikens slut på $3022)
+; ============================================================
+        *= $3200
+
+; Sinustabell: 256 värden, Y-position 80..160, centrum 120, amplitud 40
+SINTBL
+    BYTE 120,121,122,123,124,125,126,127,128,129,130,131,132,133,133,134
+    BYTE 135,136,137,138,139,140,141,141,142,143,144,145,145,146,147,148
+    BYTE 148,149,150,150,151,152,152,153,153,154,154,155,155,156,156,157
+    BYTE 157,157,158,158,158,159,159,159,159,159,160,160,160,160,160,160
+    BYTE 160,160,160,160,160,160,160,159,159,159,159,159,158,158,158,157
+    BYTE 157,157,156,156,155,155,154,154,153,153,152,152,151,150,150,149
+    BYTE 148,148,147,146,145,145,144,143,142,141,141,140,139,138,137,136
+    BYTE 135,134,133,133,132,131,130,129,128,127,126,125,124,123,122,121
+    BYTE 120,119,118,117,116,115,114,113,112,111,110,109,108,107,107,106
+    BYTE 105,104,103,102,101,100,99,99,98,97,96,95,95,94,93,92
+    BYTE 92,91,90,90,89,88,88,87,87,86,86,85,85,84,84,83
+    BYTE 83,83,82,82,82,81,81,81,81,81,80,80,80,80,80,80
+    BYTE 80,80,80,80,80,80,80,81,81,81,81,81,82,82,82,83
+    BYTE 83,83,84,84,85,85,86,86,87,87,88,88,89,90,90,91
+    BYTE 92,92,93,94,95,95,96,97,98,99,99,100,101,102,103,104
+    BYTE 105,106,107,107,108,109,110,111,112,113,114,115,116,117,118,119
+
+; ============================================================
+; SPRITEDATA - 8 unika sprites, vardera 64 bytes (63 + 1 pad)
+; Block 248=$3E00, 249=$3E40, 250=$3E80, 251=$3EC0
+; Block 252=$3F00, 253=$3F40, 254=$3F80, 255=$3FC0
+; ============================================================
+
+; --- Sprite 0: Stjärna ---
+SPRITEDATA
+    BYTE $00,$18,$00  ; ...*....  
+    BYTE $00,$18,$00  ; ...*....
+    BYTE $18,$18,$18  ; *..*..*.
+    BYTE $0C,$18,$30  ; .*.*.*. 
+    BYTE $07,$FF,$E0  ; .#######
+    BYTE $03,$FF,$C0  ; .######.
+    BYTE $7F,$FF,$FE  ; #######.
+    BYTE $3F,$FF,$FC  ; .######.
+    BYTE $1F,$FF,$F8  ; ..#####.
+    BYTE $0F,$FF,$F0  ; ...####.
+    BYTE $07,$FF,$E0  ; ....###.
+    BYTE $03,$C3,$C0  ; .....##.
+    BYTE $01,$81,$80  ; ......#.
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00,$00,$00
+    BYTE $00          ; padding
+
+; ============================================================
+; BILDDATA - platshållare, ersätt med riktiga filer från Multipaint
+; Alla tre filer måste ligga i samma mapp som source.asm
+; ============================================================
+BITMAPDATA
+        incbin "bitmap.bin"    ; 8000 bytes, multicolor bitmap
+SCREENDATA
+        incbin "screen.bin"    ; 1000 bytes, färg1/färg2 per cell
+COLORDATA
+        incbin "colorram.bin"  ; 1000 bytes, färg3 per cell
+

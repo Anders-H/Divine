@@ -1,0 +1,6 @@
+10 SYS 4355
+20 print "spelar musik"
+30 SYS 4102
+40 GET A$: IF A$="" THEN 30
+50 POKE 54296,0
+60 END

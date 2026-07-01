@@ -1,0 +1,14 @@
+00001  0000             ; --- SID TEST LOADER ---
+00002  0001                        *= $1006
+00003  1006                        INCBIN "..\..\..\I_TOUCH_MYSELF.SID",$7E
+00004  3021             
+
+******* 0 Label(s) *******
+
+******* 0 Unused label(s) *******
+
+******* 1 Variable(s) *******
+tgt_c64  = $0001
+******* 1 Unused variables(s) *******
+tgt_c64
+
