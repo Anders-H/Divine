@@ -1,20 +1,6 @@
 ; ============================================================
 ; DIVINE DEMO - C64
 ; ============================================================
-; Minneskarta:
-;   $0801-$080C  BASIC-stub
-;   $080D-$0FFF  Kod
-;   $1006-$3022  SID-musik
-;   $3200-$3DFF  SINTBL + kod-data
-;   $3E00-$3FFF  Spritedata (Källkod-data)
-;   ; --- VIC BANK 1 ($4000-$7FFF) ---
-;   $4000-$5F3F  Bitmap (8000 bytes)
-;   $6000-$63E7  Skärmminne / Video-RAM (1000 bytes)
-;   $63F8-$63FF  Sprite-pekare (Ligger i slutet av Video-RAM!)
-;   $7E00-$7FFF  Spritedata (VIC:s måladress för block 248-255)
-;   ; --- Färg-RAM (Fast adress i C64) ---
-;   $D800-$DBE7  Färg-RAM (1000 bytes)
-; ============================================================
 
 ; --- VIC-II ---
 SPRPOS   = $D000
@@ -49,7 +35,7 @@ SID_PLAY = $1006
         BYTE $0C,$08,$0A,$00,$9E,$32,$30,$36,$31,$00,$00,$00
 
 ; ============================================================
-; KODEN STARTAR HÄR ($080D)
+; Start ($080D)
 ; ============================================================
         *= $080D
 
@@ -60,7 +46,7 @@ START
         LDA #$7F
         STA CIAICR
         STA CIA2ICR
-        LDA CIAICR          ; Kvittera pending IRQ
+        LDA CIAICR
         LDA CIA2ICR
 
         ; Svart ram och bakgrund
@@ -518,8 +504,7 @@ SPRITEDATA
 ; ============================================================
 ; BILDDATA 
 ; ============================================================
-        *= $4000 ; Vi mappar källfilerna till fiktiva adresser för assemblern,
-                 ; men de läses in linjärt via incbin
+        *= $4000
 BITMAPDATA
         incbin "..\bitmap.bin"    ; 8000 bytes
 SCREENDATA
