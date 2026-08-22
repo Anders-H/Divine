@@ -27,6 +27,14 @@ CIA2ICR  = $DD0D
 ; --- SID ---
 SID_INIT = $1103
 SID_PLAY = $1006
+SID_VOL  = $D418
+
+; --- KERNAL ---
+CINT     = $FF81
+IOINIT   = $FF84
+RESTOR   = $FF8A
+SCNKEY   = $FF9F
+GETIN    = $FFE4
 
 ; ============================================================
 ; BASIC-stub på $0801 (SYS 2061)
@@ -49,9 +57,10 @@ START
         LDA CIAICR
         LDA CIA2ICR
 
-        ; Svart ram och bakgrund
+        ; Svart ram och Koala-bildens bakgrundsfärg
         LDA #$00
         STA BORDER
+        LDA #$0F
         STA BGCOL
 
         ; Byt till VIC bank 1 ($4000-$7FFF)
@@ -72,150 +81,28 @@ START
         ORA #$10            ; Bit 4 = MCM (multicolor)
         STA VICCTRL2
 
-        ; Kopiera bitmap till $4000 (8000 bytes)
-        LDY #$00
-BMP_LP1
-        LDA BITMAPDATA+$000,Y
-        STA $4000,Y
-        LDA BITMAPDATA+$100,Y
-        STA $4100,Y
-        LDA BITMAPDATA+$200,Y
-        STA $4200,Y
-        LDA BITMAPDATA+$300,Y
-        STA $4300,Y
-        LDA BITMAPDATA+$400,Y
-        STA $4400,Y
-        LDA BITMAPDATA+$500,Y
-        STA $4500,Y
-        LDA BITMAPDATA+$600,Y
-        STA $4600,Y
-        LDA BITMAPDATA+$700,Y
-        STA $4700,Y
-        INY
-        BNE BMP_LP1
-
-        LDY #$00
-BMP_LP2
-        LDA BITMAPDATA+$800,Y
-        STA $4800,Y
-        LDA BITMAPDATA+$900,Y
-        STA $4900,Y
-        LDA BITMAPDATA+$A00,Y
-        STA $4A00,Y
-        LDA BITMAPDATA+$B00,Y
-        STA $4B00,Y
-        LDA BITMAPDATA+$C00,Y
-        STA $4C00,Y
-        LDA BITMAPDATA+$D00,Y
-        STA $4D00,Y
-        LDA BITMAPDATA+$E00,Y
-        STA $4E00,Y
-        LDA BITMAPDATA+$F00,Y
-        STA $4F00,Y
-        INY
-        BNE BMP_LP2
-
-        LDY #$00
-BMP_LP3
-        LDA BITMAPDATA+$1000,Y
-        STA $5000,Y
-        LDA BITMAPDATA+$1100,Y
-        STA $5100,Y
-        LDA BITMAPDATA+$1200,Y
-        STA $5200,Y
-        LDA BITMAPDATA+$1300,Y
-        STA $5300,Y
-        LDA BITMAPDATA+$1400,Y
-        STA $5400,Y
-        LDA BITMAPDATA+$1500,Y
-        STA $5500,Y
-        LDA BITMAPDATA+$1600,Y
-        STA $5600,Y
-        LDA BITMAPDATA+$1700,Y
-        STA $5700,Y
-        INY
-        BNE BMP_LP3
-
-        LDY #$00
-BMP_LP4
-        LDA BITMAPDATA+$1800,Y
-        STA $5800,Y
-        LDA BITMAPDATA+$1900,Y
-        STA $5900,Y
-        LDA BITMAPDATA+$1A00,Y
-        STA $5A00,Y
-        LDA BITMAPDATA+$1B00,Y
-        STA $5B00,Y
-        LDA BITMAPDATA+$1C00,Y
-        STA $5C00,Y
-        LDA BITMAPDATA+$1D00,Y
-        STA $5D00,Y
-        LDA BITMAPDATA+$1E00,Y
-        STA $5E00,Y
-        LDA BITMAPDATA+$1F00,Y
-        STA $5F00,Y
-        INY
-        BNE BMP_LP4
-
-        ; Kopiera skärmdata till $6000 (1000 bytes)
+        ; Bitmap ($4000) och skärmdata ($6000) ligger redan på rätt
+        ; adresser i PRG-filen. Endast färg-RAM måste kopieras till I/O-minnet.
+        ; Kopiera först tre hela sidor (3 * 256 = 768 bytes).
         LDX #$00
-SCR_LOOP
-        LDA SCREENDATA,X
-        STA $6000,X
-        INX
-        CPX #$E8
-        BNE SCR_LOOP
-        LDX #$00
-SCR_LOOP2
-        LDA SCREENDATA+$E8,X
-        STA $60E8,X
-        INX
-        CPX #$E8
-        BNE SCR_LOOP2
-        LDX #$00
-SCR_LOOP3
-        LDA SCREENDATA+$1D0,X
-        STA $61D0,X
-        INX
-        CPX #$E8
-        BNE SCR_LOOP3
-        LDX #$00
-SCR_LOOP4
-        LDA SCREENDATA+$2B8,X
-        STA $62B8,X
-        INX
-        CPX #$88
-        BNE SCR_LOOP4
-
-        ; Kopiera färg-RAM till $D800 (1000 bytes)
-        LDX #$00
-CLR_LOOP
+CLR_PAGES
         LDA COLORDATA,X
         STA $D800,X
+        LDA COLORDATA+$100,X
+        STA $D900,X
+        LDA COLORDATA+$200,X
+        STA $DA00,X
+        INX
+        BNE CLR_PAGES
+
+        ; Kopiera återstående 232 bytes (768 + 232 = 1000).
+        LDX #$00
+CLR_LAST
+        LDA COLORDATA+$300,X
+        STA $DB00,X
         INX
         CPX #$E8
-        BNE CLR_LOOP
-        LDX #$00
-CLR_LOOP2
-        LDA COLORDATA+$E8,X
-        STA $D8E8,X
-        INX
-        CPX #$E8
-        BNE CLR_LOOP2
-        LDX #$00
-CLR_LOOP3
-        LDA COLORDATA+$1D0,X
-        STA $D9D0,X
-        INX
-        CPX #$E8
-        BNE CLR_LOOP3
-        LDX #$00
-CLR_LOOP4
-        LDA COLORDATA+$2B8,X
-        STA $DAB8,X
-        INX
-        CPX #$88
-        BNE CLR_LOOP4
+        BNE CLR_LAST
 
         ; Aktivera alla 8 sprites med normala proportioner (ingen Y-expansion)
         LDA #$FF
@@ -295,7 +182,31 @@ INIT_POS
 ; MAINLOOP
 ; ============================================================
 MAIN
-        JMP MAIN
+        ; Läs tangentbufferten atomiskt eftersom IRQ-rutinen skannar tangentbordet.
+        SEI
+        JSR GETIN
+        CLI
+        CMP #$20            ; Blanksteg
+        BNE MAIN
+        JMP EXIT
+
+; ============================================================
+; EXIT - återställ maskinen och återgå från BASIC-kommandot SYS
+; ============================================================
+EXIT
+        SEI
+        LDA #$00
+        STA VICICR          ; Stäng av raster-IRQ
+        STA SPREN           ; Dölj alla sprites
+        STA SID_VOL         ; Tysta musiken
+        LDA #$01
+        STA VICIRQ          ; Kvittera väntande VIC-IRQ
+
+        JSR RESTOR          ; Återställ KERNAL-vektorer
+        JSR IOINIT          ; Återställ CIA och I/O
+        JSR CINT            ; Återställ textläge och skärmeditorn
+        CLI
+        RTS                 ; Tillbaka till BASIC efter SYS
 
 ; ============================================================
 ; IRQ-rutin
@@ -314,6 +225,7 @@ IRQ
         JSR MUSIC           ; Hantera loop
         JSR MOVE            ; Uppdatera sprites
         JSR FADE            ; Tona spritefärger
+        JSR SCNKEY          ; Skanna tangentbordet en gång per bildruta
 
         PLA
         TAY
@@ -507,7 +419,11 @@ SPRITEDATA
         *= $4000
 BITMAPDATA
         incbin "..\bitmap.bin"    ; 8000 bytes
+
+        *= $6000
 SCREENDATA
         incbin "..\screen.bin"    ; 1000 bytes
+
+        *= $6400
 COLORDATA
         incbin "..\colorram.bin"  ; 1000 bytes
